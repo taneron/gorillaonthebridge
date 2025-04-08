@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#000" />
+    <link rel="manifest" href="manifest.json" />
+    <title>Gorilla Bridge Game</title>
+    <style>
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #87CEEB;
+        }
+
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        let gorilla = {
+            x: canvas.width / 2,
+            y: canvas.height - 150,
+            width: 50,
+            height: 80,
+            tilt: 0
+        };
+
+        let bridge = {
+            x: canvas.width / 2 - 50,
+            width: 100
+        };
+
+        let startTime = Date.now();
+        let levelDuration = 60 * 1000; // 60s per level
+        let gameOver = false;
+
+        window.addEventListener("deviceorientation", (e) => {
+            const tilt = e.gamma;
+            if (tilt !== null) {
+                gorilla.tilt = tilt;
+            }
+        });
+
+        function update() {
+            gorilla.x += gorilla.tilt * 0.5;
+
+            // Keep gorilla within screen
+            gorilla.x = Math.max(0, Math.min(canvas.width - gorilla.width, gorilla.x));
+
+            // Check if gorilla is off the bridge
+            if (
+                gorilla.x + gorilla.width < bridge.x ||
+                gorilla.x > bridge.x + bridge.width
+            ) {
+                gameOver = true;
+            }
+        }
+
+        function drawGorilla() {
+            ctx.fillStyle = "#654321";
+            ctx.fillRect(gorilla.x, gorilla.y, gorilla.width, gorilla.height);
+        }
+
+        function drawBridge() {
+            ctx.fillStyle = "#000";
+            ctx.fillRect(bridge.x, 0, bridge.width, canvas.height);
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawBridge();
+            drawGorilla();
+        }
+
+        function loop() {
+            if (gameOver) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = "red";
+                ctx.font = "48px sans-serif";
+                ctx.fillText("Game Over", canvas.width / 2 - 100, canvas.height / 2);
+                return;
+            }
+
+            const elapsed = Date.now() - startTime;
+            if (elapsed > levelDuration) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = "green";
+                ctx.font = "48px sans-serif";
+                ctx.fillText("Level Complete!", canvas.width / 2 - 150, canvas.height / 2);
+                return;
+            }
+
+            update();
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        loop();
+    </script>
+</body>
+
+</html>
