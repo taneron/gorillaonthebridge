@@ -4,9 +4,13 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#000" />
-    <link rel="manifest" href="manifest.json" />
+
+    <!-- PWA Settings -->
     <title>Gorilla Bridge Game</title>
+    <meta name="theme-color" content="#000000" />
+    <link rel="manifest" href="manifest.json" />
+
+    <!-- Basic Style -->
     <style>
         html,
         body {
@@ -14,101 +18,166 @@
             padding: 0;
             overflow: hidden;
             background: #87CEEB;
+            touch-action: none;
+            /* helps prevent scrolling on mobile */
         }
 
-        canvas {
+        #gameCanvas {
             display: block;
+            background: #87CEEB;
+        }
+
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: sans-serif;
+            font-size: 2rem;
+            color: #fff;
+            pointer-events: none;
         }
     </style>
 </head>
 
 <body>
+    <!-- Canvas for Game -->
     <canvas id="gameCanvas"></canvas>
+    <!-- Overlay for Messages -->
+    <div id="overlay" class="overlay"></div>
+
     <script>
-        const canvas = document.getElementById("gameCanvas");
-        const ctx = canvas.getContext("2d");
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+        // Register Service Worker for PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker
+                    .register('service-worker.js')
+                    .catch((err) => console.error('Service Worker registration failed:', err));
+            });
+        }
 
-        let gorilla = {
-            x: canvas.width / 2,
-            y: canvas.height - 150,
+        // Canvas Setup
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Basic Gorilla + Bridge Setup
+        const gorilla = {
+            // We'll see the gorilla from behind at bottom center
             width: 50,
-            height: 80,
-            tilt: 0
+            height: 50,
+            x: canvas.width / 2 - 25,
+            y: canvas.height - 100,
+            tilt: 0, // device tilt
+            speed: 1.5 // forward speed (vertical movement)
         };
 
-        let bridge = {
-            x: canvas.width / 2 - 50,
-            width: 100
-        };
+        let bridgeWidth = 120; // width of the thin bridge
+        let bridgeX = canvas.width / 2 - bridgeWidth / 2; // center of screen
 
-        let startTime = Date.now();
-        let levelDuration = 60 * 1000; // 60s per level
+        // Level Control
+        let level = 1;
+        let levelStartTime = performance.now();
+        let levelDuration = 30000; // 30s at minimum
         let gameOver = false;
+        let levelComplete = false;
 
-        window.addEventListener("deviceorientation", (e) => {
-            const tilt = e.gamma;
-            if (tilt !== null) {
-                gorilla.tilt = tilt;
+        const overlay = document.getElementById('overlay');
+
+        // Accelerometer
+        window.addEventListener('deviceorientation', (event) => {
+            // gamma is left/right tilt in degrees
+            if (event.gamma != null) {
+                // range -90 to +90 typically
+                gorilla.tilt = event.gamma;
             }
         });
 
-        function update() {
-            gorilla.x += gorilla.tilt * 0.5;
+        // Update logic
+        function update(dt) {
+            if (gameOver || levelComplete) return;
 
-            // Keep gorilla within screen
-            gorilla.x = Math.max(0, Math.min(canvas.width - gorilla.width, gorilla.x));
+            // Move gorilla forward (upward on the screen)
+            gorilla.y -= gorilla.speed * dt;
 
-            // Check if gorilla is off the bridge
+            // Move gorilla horizontally based on tilt
+            // event.gamma is in degrees, let's scale for gentle movement
+            gorilla.x += gorilla.tilt * 0.05 * dt;
+
+            // Keep within screen edges
+            if (gorilla.x < 0) {
+                gorilla.x = 0;
+            } else if (gorilla.x + gorilla.width > canvas.width) {
+                gorilla.x = canvas.width - gorilla.width;
+            }
+
+            // Check if gorilla is off the thin bridge
             if (
-                gorilla.x + gorilla.width < bridge.x ||
-                gorilla.x > bridge.x + bridge.width
+                gorilla.x + gorilla.width < bridgeX ||
+                gorilla.x > bridgeX + bridgeWidth
             ) {
+                // Gorilla is off the bridge => game over
                 gameOver = true;
+                overlay.textContent = 'Game Over! Refresh to Try Again.';
+            }
+
+            // Check time for level completion
+            let elapsed = performance.now() - levelStartTime;
+            if (elapsed >= levelDuration) {
+                levelComplete = true;
+                overlay.textContent = `Level ${level} Complete!`; // We can extend logic to go to next level
             }
         }
 
-        function drawGorilla() {
-            ctx.fillStyle = "#654321";
-            ctx.fillRect(gorilla.x, gorilla.y, gorilla.width, gorilla.height);
-        }
-
-        function drawBridge() {
-            ctx.fillStyle = "#000";
-            ctx.fillRect(bridge.x, 0, bridge.width, canvas.height);
-        }
-
+        // Drawing
         function draw() {
+            // Clear
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            drawBridge();
-            drawGorilla();
+
+            // Draw Bridge
+            ctx.fillStyle = '#444';
+            ctx.fillRect(
+                bridgeX,
+                0,
+                bridgeWidth,
+                canvas.height
+            );
+
+            // Draw Gorilla (seen from behind)
+            // For simplicity, just a rectangle for now
+            // You can replace this with an image sprite
+            ctx.fillStyle = '#654321';
+            ctx.fillRect(
+                gorilla.x,
+                gorilla.y,
+                gorilla.width,
+                gorilla.height
+            );
         }
 
-        function loop() {
-            if (gameOver) {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                ctx.fillStyle = "red";
-                ctx.font = "48px sans-serif";
-                ctx.fillText("Game Over", canvas.width / 2 - 100, canvas.height / 2);
-                return;
-            }
+        // Main loop
+        let lastTimestamp = performance.now();
+        function gameLoop(timestamp) {
+            let dt = timestamp - lastTimestamp;
+            lastTimestamp = timestamp;
 
-            const elapsed = Date.now() - startTime;
-            if (elapsed > levelDuration) {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                ctx.fillStyle = "green";
-                ctx.font = "48px sans-serif";
-                ctx.fillText("Level Complete!", canvas.width / 2 - 150, canvas.height / 2);
-                return;
-            }
-
-            update();
+            update(dt);
             draw();
-            requestAnimationFrame(loop);
+
+            requestAnimationFrame(gameLoop);
         }
 
-        loop();
+        // Start the game
+        requestAnimationFrame(gameLoop);
     </script>
 </body>
 
