@@ -66,7 +66,7 @@ const GRAVITY = 0.02;
 const PLANK_WIDTH = 1.2;
 const PLANK_LENGTH = 3;
 const PLANK_GAP = 0.5;
-const PLANK_COUNT = 30;
+const PLANK_COUNT = 150;
 
 let jumping = false;
 let jumpVelocity = 0;
