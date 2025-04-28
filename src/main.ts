@@ -253,6 +253,7 @@ function onTilt(event: DeviceMotionEvent): void {
     debugText.textContent = "tilt start"
     if (event.accelerationIncludingGravity) {
         const { x } = event.accelerationIncludingGravity;
+
         debugText.textContent = (JSON.stringify(event.accelerationIncludingGravity))
         if (!x) {
             debugText.textContent = "Tilt sensors not working";
@@ -263,7 +264,7 @@ function onTilt(event: DeviceMotionEvent): void {
         debugText.textContent = `Tilt X: ${x.toFixed(2)}\nTilt Value: ${tiltX.toFixed(2)}`;
 
         // Normalize the tilt value and apply smoothing
-        const targetTilt = THREE.MathUtils.clamp(x * tiltSensitivity, -1, 1);
+        const targetTilt = THREE.MathUtils.clamp(-x * tiltSensitivity, -1, 1);
         tiltX = lastTiltX + (targetTilt - lastTiltX) * tiltSmoothing;
         lastTiltX = tiltX;
     } else {
