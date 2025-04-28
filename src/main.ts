@@ -50,6 +50,11 @@ let lastTiltX = 0;
 const tiltSensitivity = 0.5;
 const tiltSmoothing = 0.1;
 let debugText: HTMLDivElement;
+let score = 0;
+let scoreText: HTMLDivElement;
+let maxZ = 0;
+let highScore = 0;
+let bridgeEndZ = 0;
 
 let SPEED = 0.15; // speed of the mainUser
 let falling = false;
@@ -77,6 +82,21 @@ function init(): void {
     debugText.style.padding = '5px';
     debugText.style.borderRadius = '5px';
     document.body.appendChild(debugText);
+
+    // Create score text element
+    scoreText = document.createElement('div');
+    scoreText.style.position = 'absolute';
+    scoreText.style.top = '10px';
+    scoreText.style.right = '10px';
+    scoreText.style.color = 'yellow';
+    scoreText.style.fontFamily = 'Arial';
+    scoreText.style.fontSize = '20px';
+    scoreText.style.backgroundColor = 'rgba(0,0,0,0.5)';
+    scoreText.style.padding = '5px 12px';
+    scoreText.style.borderRadius = '5px';
+    scoreText.style.fontWeight = 'bold';
+    scoreText.textContent = 'Score: 0';
+    document.body.appendChild(scoreText);
 
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x87ceeb);
@@ -109,7 +129,7 @@ function init(): void {
     loader = new GLTFLoader();
     textureLoader = new THREE.TextureLoader();
 
-    loader.load('models/dragon/dragon.glb', (gltf: GLTF) => {
+    loader.load('dragon/dragon.glb', (gltf: GLTF) => {
         textureLoader.load('assets/skin_texture.png', (texture) => {
             mainUser!.traverse((child) => {
                 if ((child as THREE.Mesh).isMesh) {
@@ -248,6 +268,8 @@ function createBridge(): void {
 
     scene.add(bridgeGroup);
     bridge = bridgeGroup;
+    // Calculate the end Z of the bridge
+    bridgeEndZ = (count - 1) * (PLANK_LENGTH + PLANK_GAP) + PLANK_LENGTH / 2;
 }
 
 function onTilt(event: DeviceMotionEvent): void {
@@ -286,22 +308,46 @@ function animate(): void {
     }
 
     if (mainUser) {
-        if (!falling) {
+        // Check if user reached the end of the bridge
+        if (!falling && mainUser.position.z >= bridgeEndZ) {
+            // Update high score if needed
+            if (score > highScore) {
+                highScore = score;
+            }
+            scoreText.textContent = `Bridge Complete! High Score: ${highScore}`;
+            debugText.textContent = 'Restarting...';
+            setTimeout(() => {
+                mainUser!.position.set(0, 0.45, 0);
+                falling = false;
+                fallVelocity = 0;
+                maxZ = 0;
+                score = 0;
+                scoreText.textContent = 'Score: 0';
+                startLevel();
+            }, 2000);
+            return;
+        }
+        if (!falling && mainUser.position.z < bridgeEndZ) {
             mainUser.position.z += SPEED;
             mainUser.position.x = THREE.MathUtils.lerp(
                 mainUser.position.x,
                 tiltX * 2,
                 0.1
             );
-            // Always float above the planks
             mainUser.position.y = 0.45;
-            // Only fall if too far left or right
+            // Only fall if too far left or right (but not at the end)
             if (Math.abs(mainUser.position.x) > PLANK_WIDTH / 2) {
                 falling = true;
                 fallVelocity = 0;
                 debugText.textContent = 'Falling (off the side)!';
             }
-        } else {
+            // Update score based on farthest Z position
+            if (mainUser.position.z > maxZ) {
+                maxZ = mainUser.position.z;
+                score = Math.floor(maxZ);
+                scoreText.textContent = `Score: ${score}`;
+            }
+        } else if (falling) {
             // Animate falling
             fallVelocity += GRAVITY;
             mainUser.position.y -= fallVelocity;
@@ -312,6 +358,9 @@ function animate(): void {
                     mainUser!.position.set(0, 0.45, 0);
                     falling = false;
                     fallVelocity = 0;
+                    maxZ = 0;
+                    score = 0;
+                    scoreText.textContent = 'Score: 0';
                     startLevel();
                 }, 1000);
             }
@@ -329,7 +378,10 @@ function nextLevel(): void {
     scene.remove(bridge);
     createBridge();
     if (mainUser) {
-        mainUser.position.set(0, 0, 0);
+        mainUser.position.set(0, 0.45, 0);
+        maxZ = 0;
+        score = 0;
+        scoreText.textContent = 'Score: 0';
     }
     startLevel();
 }

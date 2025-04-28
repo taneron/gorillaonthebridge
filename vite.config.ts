@@ -14,5 +14,6 @@ export default defineConfig({
                 enabled: true
             }
         })
-    ]
+    ],
+    publicDir: "public"
 })
