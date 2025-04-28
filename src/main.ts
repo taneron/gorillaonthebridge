@@ -31,7 +31,7 @@
  * - Responsive: Full-screen canvas layout adapts to mobile device orientation and resolution.
  */
 import * as THREE from 'three';
-import { isAndroidChrome, isAndroidEdge, isIOS, isTouchScreen } from './utils';
+import { isIOS, isTouchScreen } from './utils';
 // import { GLTFLoader } from './loader';
 import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js'
 
@@ -56,7 +56,10 @@ let maxZ = 0;
 let highScore = 0;
 let bridgeEndZ = 0;
 
-let SPEED = 0.20; // speed of the mainUser
+const BASE_SPEED = 0.20;
+const SPEED_GROWTH_FACTOR = 0.0005;
+const MAX_SPEED = 1.0;
+
 let falling = false;
 let fallVelocity = 0;
 const GRAVITY = 0.02;
@@ -70,15 +73,18 @@ let jumpVelocity = 0;
 const JUMP_VELOCITY = 0.25;
 const JUMP_GRAVITY = 0.018;
 const JUMP_Y = 0.45;
-const JUMP_THRESHOLD = 0.2; // m/s^2 upward acceleration
+const JUMP_THRESHOLD = 0.1; // m/s^2 upward acceleration
 
 const BASE_SCALE = 0.4;
-const GROWTH_FACTOR = 0.003;
-const MAX_SCALE = 3;
+const GROWTH_FACTOR = 0.0003;
+const MAX_SCALE = 2;
 
+
+createMotionVisualization(); //
 init();
 animate();
 registerServiceWorker();
+// Remove the demoContainer.innerHTML assignment
 
 function init(): void {
     // Create debug text element
@@ -227,9 +233,9 @@ function createBridge(): void {
     const plankGeometry = new THREE.BoxGeometry(1.2, 0.1, 3);
 
     const gap = 0;
-    const count = 100;
+    const count = PLANK_COUNT;
     // Define a variety factor to control how much the planks can deviate horizontally
-    const variety = 0.6; // Higher values = more random placement
+    const variety = 0.2; // Higher values = more random placement
 
     for (let i = 0; i < count; i++) {
         // random colors
@@ -253,7 +259,6 @@ function onTilt(event: DeviceMotionEvent): void {
     if (event.accelerationIncludingGravity) {
         const { x } = event.accelerationIncludingGravity;
 
-        debugText.textContent = (JSON.stringify(event.accelerationIncludingGravity))
         if (!x) {
             debugText.textContent = "Tilt sensors not working";
             return;
@@ -315,7 +320,8 @@ function animate(): void {
             return;
         }
         if (!falling && mainUser.position.z < bridgeEndZ) {
-            mainUser.position.z += SPEED;
+            const currentSpeed = Math.min(BASE_SPEED + mainUser.position.z * SPEED_GROWTH_FACTOR, MAX_SPEED);
+            mainUser.position.z += currentSpeed;
             mainUser.position.x = THREE.MathUtils.lerp(
                 mainUser.position.x,
                 tiltX * 2,
@@ -409,18 +415,19 @@ function registerServiceWorker(): void {
 
 // test
 
-const createMotionVisualization = () => {
+function createMotionVisualization() {
     const demoContainer = document.createElement('div');
     demoContainer.className = 'demo-container';
     document.body.appendChild(demoContainer);
 
-    const ball = document.createElement('div');
-    ball.id = 'motion-ball';
-    demoContainer.appendChild(ball);
+    // const ball = document.createElement('div');
+    // ball.id = 'motion-ball';
+    // demoContainer.appendChild(ball);
 
     const startButton = document.createElement('button');
     startButton.id = 'start-motion';
     startButton.textContent = 'Start Motion';
+    startButton.style.width = "100%"
     demoContainer.appendChild(startButton);
 };
 
@@ -448,8 +455,7 @@ const detectShake = (event: DeviceMotionEvent) => {
 const supported = 'DeviceMotionEvent' in window && isTouchScreen();
 const noSensorPermission = supported && !('requestPermission' in DeviceMotionEvent);
 
-// Remove the demoContainer.innerHTML assignment
-createMotionVisualization(); // Add this to create the ball element
+//  Add this to create the ball element
 
 // Keep the event listeners for buttons that now exist in the template
 const startButton = document.getElementById('start-motion');
@@ -466,27 +472,9 @@ startButton?.addEventListener('click', async () => {
 
         //@ts-ignore
         startButton.disabled = true;
+        startButton.style.display = "none";
     } catch (error) {
         console.error('Error accessing motion sensors:', error);
     }
 });
-
-function isAbovePlank(x: number, z: number): boolean {
-    for (let i = 0; i < PLANK_COUNT; i++) {
-        const plankZ = i * (PLANK_LENGTH + PLANK_GAP);
-        const plankStart = plankZ - PLANK_LENGTH / 2;
-        const plankEnd = plankZ + PLANK_LENGTH / 2;
-        if (
-            z >= plankStart &&
-            z <= plankEnd &&
-            Math.abs(x) <= PLANK_WIDTH / 2
-        ) {
-            debugText.textContent = `Above plank ${i} (Z: ${plankStart.toFixed(2)} to ${plankEnd.toFixed(2)})`;
-            return true;
-        }
-    }
-    debugText.textContent = `Not above any plank. Z: ${z.toFixed(2)}`;
-    return false;
-}
-
 
