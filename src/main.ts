@@ -231,10 +231,18 @@ function createBridge(): void {
     const plankMaterial = new THREE.MeshStandardMaterial({ color: 0x8b4513 });
 
     const gap = 0;
-    const count = 30;
+    const count = 40;
+    // Define a variety factor to control how much the planks can deviate horizontally
+    const variety = 0.3; // Higher values = more random placement
+
     for (let i = 0; i < count; i++) {
-        const plank = new THREE.Mesh(plankGeometry, plankMaterial);
-        plank.position.set(0, 0, i * (3 + gap));
+        // random colors
+        const randomColor = Math.random() * 0xffffff;
+        let material = new THREE.MeshStandardMaterial({ color: randomColor });
+        const plank = new THREE.Mesh(plankGeometry, material);
+        // Random horizontal offset based on variety factor
+        const randomOffset = (Math.random() * 2 - 1) * variety;
+        plank.position.set(randomOffset, 0, i * (3 + gap));
         bridgeGroup.add(plank);
     }
 
