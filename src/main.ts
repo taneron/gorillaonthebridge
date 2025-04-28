@@ -70,7 +70,11 @@ let jumpVelocity = 0;
 const JUMP_VELOCITY = 0.25;
 const JUMP_GRAVITY = 0.018;
 const JUMP_Y = 0.45;
-const JUMP_THRESHOLD = 1; // m/s^2 upward acceleration
+const JUMP_THRESHOLD = 0.2; // m/s^2 upward acceleration
+
+const BASE_SCALE = 0.4;
+const GROWTH_FACTOR = 0.003;
+const MAX_SCALE = 3;
 
 init();
 animate();
@@ -207,45 +211,11 @@ function init(): void {
                     debugText.textContent = "Device motion data not available";
                     return;
                 }
-                // Update debug text with tilt information
-                debugText.textContent = `Tilt X: ${frontToBack?.toFixed(2)}\nTilt Value: ${leftToRight?.toFixed(2)}`;
-                // Normalize the tilt value and apply smoothing
-                // const targetTilt = THREE.MathUtils.clamp(frontToBack * tiltSensitivity, -1, 1);
-                // tiltX = lastTiltX + (targetTilt - lastTiltX) * tiltSmoothing;
 
-                // handleOrientationEvent(frontToBack, leftToRight, rotateDegrees);
             },
             true,
         );
     }
-
-    // const handleOrientationEvent = (frontToBack, leftToRight, rotateDegrees) => {
-    //     // do something amazing
-    //     // debugText.textContent(JSON.stringify({ frontToBack, leftToRight, rotateDegrees }))
-    // };
-
-    //     window.addEventListener("deviceorientation", (event) => {
-    //         if (event && event.beta !== null && event.gamma !== null) {
-    //             // Update debug text with orientation information
-    //             const beta = event.beta?.toFixed(2) || "N/A";  // Front-to-back tilt
-    //             const gamma = event.gamma?.toFixed(2) || "N/A"; // Left-to-right tilt
-    //             const alpha = event.alpha?.toFixed(2) || "N/A"; // Device compass direction
-
-    //             // Append orientation data to debug text
-    //             debugText.textContent = `${debugText.textContent || ""}
-    // Orientation:
-    // Alpha (compass): ${alpha}°
-    // Beta (front/back): ${beta}°
-    // Gamma (left/right): ${gamma}°`;
-    //         } else {
-    //             debugText.textContent = `${debugText.textContent || ""}
-    // Orientation sensors not available`;
-    //         }
-
-    //     });
-
-    // startSensors()
-
     window.addEventListener('resize', onWindowResize, false);
 
     startLevel();
@@ -289,8 +259,7 @@ function onTilt(event: DeviceMotionEvent): void {
             return;
         }
 
-        // Update debug text with tilt information
-        // debugText.textContent = `Tilt X: ${x.toFixed(2)}\nTilt Value: ${tiltX.toFixed(2)}`;
+
 
         // Normalize the tilt value and apply smoothing
         const targetTilt = THREE.MathUtils.clamp(-x * tiltSensitivity, -1, 1);
@@ -352,6 +321,9 @@ function animate(): void {
                 tiltX * 2,
                 0.1
             );
+            // Grow user as they move forward
+            const newScale = Math.min(BASE_SCALE + mainUser.position.z * GROWTH_FACTOR, MAX_SCALE);
+            mainUser.scale.set(newScale, newScale, newScale);
             // Jumping logic
             if (jumping) {
                 mainUser.position.y += jumpVelocity;
