@@ -51,6 +51,8 @@ const tiltSensitivity = 0.1;
 const tiltSmoothing = 0.1;
 let debugText: HTMLDivElement;
 
+let SPEED = 0.15; // speed of the mainUser
+
 init();
 animate();
 registerServiceWorker();
@@ -215,22 +217,6 @@ function init(): void {
     startLevel();
 }
 
-// function startSensors() {
-//     if (iOS()) {
-//         DeviceOrientationEvent.requestPermission()
-//             .then((response) => {
-//                 if (response === "granted") {
-//                     window.addEventListener("deviceorientation", handler, true);
-//                 } else {
-//                     alert("has to be allowed!");
-//                 }
-//             })
-//             .catch(() => alert("not supported"));
-//     } else {
-//         window.addEventListener("deviceorientationabsolute", handler, true);
-//     }
-// }
-
 
 function createBridge(): void {
     const bridgeGroup = new THREE.Group();
@@ -286,7 +272,7 @@ function animate(): void {
 
     // Move mainUser forward
     if (mainUser) {
-        mainUser.position.z += 0.05;
+        mainUser.position.z += SPEED;
         // Steering with smoother movement
         mainUser.position.x = THREE.MathUtils.lerp(
             mainUser.position.x,
@@ -350,33 +336,7 @@ const createMotionVisualization = () => {
     demoContainer.appendChild(startButton);
 };
 
-const handleMotion = (event: DeviceMotionEvent) => {
-    const { accelerationIncludingGravity, rotationRate, interval } = event;
-    const ball = document.getElementById('motion-ball');
 
-    // Update ball position based on acceleration
-    //@ts-ignore
-    const x = accelerationIncludingGravity.x * 2;
-    //@ts-ignore
-    const y = accelerationIncludingGravity.y * 2;
-    //@ts-ignore
-    ball.style.transform = `translate(${x}px, ${y}px)`;
-
-    // Update numerical readouts
-    //@ts-ignore
-    document.getElementById('accel-x').textContent = accelerationIncludingGravity.x.toFixed(2);
-
-    //@ts-ignore
-    document.getElementById('accel-y').textContent = accelerationIncludingGravity.y.toFixed(2);
-    //@ts-ignore
-    document.getElementById('accel-z').textContent = accelerationIncludingGravity.z.toFixed(2);
-    //@ts-ignore
-    document.getElementById('rotation-alpha').textContent = rotationRate?.alpha?.toFixed(2) || '0.00';
-    //@ts-ignore
-    document.getElementById('rotation-beta').textContent = rotationRate?.beta?.toFixed(2) || '0.00';
-    //@ts-ignore
-    document.getElementById('rotation-gamma').textContent = rotationRate?.gamma?.toFixed(2) || '0.00';
-};
 
 const detectShake = (event: DeviceMotionEvent) => {
     const { acceleration } = event;
@@ -416,8 +376,6 @@ startButton?.addEventListener('click', async () => {
             if (permission !== 'granted') return;
         }
 
-        window.addEventListener('devicemotion', handleMotion);
-        window.addEventListener('devicemotion', detectShake);
         //@ts-ignore
         startButton.disabled = true;
     } catch (error) {
