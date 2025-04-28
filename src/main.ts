@@ -56,7 +56,7 @@ let maxZ = 0;
 let highScore = 0;
 let bridgeEndZ = 0;
 
-let SPEED = 0.15; // speed of the mainUser
+let SPEED = 0.20; // speed of the mainUser
 let falling = false;
 let fallVelocity = 0;
 const GRAVITY = 0.02;
@@ -64,6 +64,13 @@ const PLANK_WIDTH = 1.2;
 const PLANK_LENGTH = 3;
 const PLANK_GAP = 0.5;
 const PLANK_COUNT = 30;
+
+let jumping = false;
+let jumpVelocity = 0;
+const JUMP_VELOCITY = 0.25;
+const JUMP_GRAVITY = 0.018;
+const JUMP_Y = 0.45;
+const JUMP_THRESHOLD = 1; // m/s^2 upward acceleration
 
 init();
 animate();
@@ -248,12 +255,11 @@ function init(): void {
 function createBridge(): void {
     const bridgeGroup = new THREE.Group();
     const plankGeometry = new THREE.BoxGeometry(1.2, 0.1, 3);
-    const plankMaterial = new THREE.MeshStandardMaterial({ color: 0x8b4513 });
 
     const gap = 0;
-    const count = 40;
+    const count = 100;
     // Define a variety factor to control how much the planks can deviate horizontally
-    const variety = 0.3; // Higher values = more random placement
+    const variety = 0.6; // Higher values = more random placement
 
     for (let i = 0; i < count; i++) {
         // random colors
@@ -292,6 +298,18 @@ function onTilt(event: DeviceMotionEvent): void {
         lastTiltX = tiltX;
     } else {
         debugText.textContent = "Device motion data not available";
+    }
+
+    // Detect jump (kick up)
+    if (
+        event.accelerationIncludingGravity &&
+        !jumping && !falling && mainUser &&
+        event.accelerationIncludingGravity.y !== null &&
+        event.accelerationIncludingGravity.y > JUMP_THRESHOLD
+    ) {
+        jumping = true;
+        jumpVelocity = JUMP_VELOCITY;
+        debugText.textContent = 'Jump!';
     }
 }
 
@@ -334,7 +352,19 @@ function animate(): void {
                 tiltX * 2,
                 0.1
             );
-            mainUser.position.y = 0.45;
+            // Jumping logic
+            if (jumping) {
+                mainUser.position.y += jumpVelocity;
+                jumpVelocity -= JUMP_GRAVITY;
+                if (mainUser.position.y <= JUMP_Y) {
+                    mainUser.position.y = JUMP_Y;
+                    jumping = false;
+                    jumpVelocity = 0;
+                    debugText.textContent = 'Landed!';
+                }
+            } else {
+                mainUser.position.y = JUMP_Y;
+            }
             // Only fall if too far left or right (but not at the end)
             if (Math.abs(mainUser.position.x) > PLANK_WIDTH / 2) {
                 falling = true;
@@ -355,7 +385,7 @@ function animate(): void {
             if (mainUser.position.y < -5) {
                 debugText.textContent = 'You fell! Resetting...';
                 setTimeout(() => {
-                    mainUser!.position.set(0, 0.45, 0);
+                    mainUser!.position.set(0, JUMP_Y, 0);
                     falling = false;
                     fallVelocity = 0;
                     maxZ = 0;
