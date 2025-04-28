@@ -47,11 +47,18 @@ let levelTime = 30; // seconds, adjust per level
 let levelStart = 0;
 let tiltX = 0;
 let lastTiltX = 0;
-const tiltSensitivity = 0.1;
+const tiltSensitivity = 0.5;
 const tiltSmoothing = 0.1;
 let debugText: HTMLDivElement;
 
 let SPEED = 0.15; // speed of the mainUser
+let falling = false;
+let fallVelocity = 0;
+const GRAVITY = 0.02;
+const PLANK_WIDTH = 1.2;
+const PLANK_LENGTH = 3;
+const PLANK_GAP = 0.5;
+const PLANK_COUNT = 30;
 
 init();
 animate();
@@ -223,7 +230,7 @@ function createBridge(): void {
     const plankGeometry = new THREE.BoxGeometry(1.2, 0.1, 3);
     const plankMaterial = new THREE.MeshStandardMaterial({ color: 0x8b4513 });
 
-    const gap = 0.5;
+    const gap = 0;
     const count = 30;
     for (let i = 0; i < count; i++) {
         const plank = new THREE.Mesh(plankGeometry, plankMaterial);
@@ -247,7 +254,7 @@ function onTilt(event: DeviceMotionEvent): void {
         }
 
         // Update debug text with tilt information
-        debugText.textContent = `Tilt X: ${x.toFixed(2)}\nTilt Value: ${tiltX.toFixed(2)}`;
+        // debugText.textContent = `Tilt X: ${x.toFixed(2)}\nTilt Value: ${tiltX.toFixed(2)}`;
 
         // Normalize the tilt value and apply smoothing
         const targetTilt = THREE.MathUtils.clamp(-x * tiltSensitivity, -1, 1);
@@ -270,21 +277,40 @@ function animate(): void {
         nextLevel();
     }
 
-    // Move mainUser forward
     if (mainUser) {
-        mainUser.position.z += SPEED;
-        // Steering with smoother movement
-        mainUser.position.x = THREE.MathUtils.lerp(
-            mainUser.position.x,
-            tiltX * 2,
-            0.1
-        );
+        if (!falling) {
+            mainUser.position.z += SPEED;
+            mainUser.position.x = THREE.MathUtils.lerp(
+                mainUser.position.x,
+                tiltX * 2,
+                0.1
+            );
+            // Always float above the planks
+            mainUser.position.y = 0.45;
+            // Only fall if too far left or right
+            if (Math.abs(mainUser.position.x) > PLANK_WIDTH / 2) {
+                falling = true;
+                fallVelocity = 0;
+                debugText.textContent = 'Falling (off the side)!';
+            }
+        } else {
+            // Animate falling
+            fallVelocity += GRAVITY;
+            mainUser.position.y -= fallVelocity;
+            debugText.textContent = 'Falling! Y=' + mainUser.position.y.toFixed(2);
+            if (mainUser.position.y < -5) {
+                debugText.textContent = 'You fell! Resetting...';
+                setTimeout(() => {
+                    mainUser!.position.set(0, 0.45, 0);
+                    falling = false;
+                    fallVelocity = 0;
+                    startLevel();
+                }, 1000);
+            }
+        }
         camera.position.x = mainUser.position.x;
         camera.position.z = mainUser.position.z - 5;
         camera.lookAt(mainUser.position.x, mainUser.position.y, mainUser.position.z);
-
-        // Update debug text with position information
-        // debugText.textContent = `\nPosition: (${mainUser.position.x.toFixed(2)}, ${mainUser.position.y.toFixed(2)}, ${mainUser.position.z.toFixed(2)})`;
     }
 
     renderer.render(scene, camera);
@@ -382,5 +408,23 @@ startButton?.addEventListener('click', async () => {
         console.error('Error accessing motion sensors:', error);
     }
 });
+
+function isAbovePlank(x: number, z: number): boolean {
+    for (let i = 0; i < PLANK_COUNT; i++) {
+        const plankZ = i * (PLANK_LENGTH + PLANK_GAP);
+        const plankStart = plankZ - PLANK_LENGTH / 2;
+        const plankEnd = plankZ + PLANK_LENGTH / 2;
+        if (
+            z >= plankStart &&
+            z <= plankEnd &&
+            Math.abs(x) <= PLANK_WIDTH / 2
+        ) {
+            debugText.textContent = `Above plank ${i} (Z: ${plankStart.toFixed(2)} to ${plankEnd.toFixed(2)})`;
+            return true;
+        }
+    }
+    debugText.textContent = `Not above any plank. Z: ${z.toFixed(2)}`;
+    return false;
+}
 
 
